@@ -1,0 +1,26 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${APPLICATION}-ingress
+  namespace: ${SQUAD}-${ENV}
+  annotations:
+    cert-manager.io/cluster-issuer: my-letsencrypt
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: ${APPLICATION}.${HOST}
+    http:
+      paths:
+      - backend:
+          service:
+            name: ${APPLICATION}
+            port:
+              number: ${APPLICATION_PORT}
+        path: /
+        pathType: ImplementationSpecific
+  tls:
+    - hosts:
+      - ${APPLICATION}.${HOST}
+      secretName: ${APPLICATION}-my-letsencrypt

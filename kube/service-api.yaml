@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${APPLICATION}
+  namespace: ${SQUAD}-${ENV}
+  labels:
+    app: ${APPLICATION}
+    service: ${APPLICATION}
+spec:
+  ports:
+  - port: ${APPLICATION_PORT}
+    targetPort: ${APPLICATION_PORT}
+    name: http
+  selector:
+    app: ${APPLICATION}

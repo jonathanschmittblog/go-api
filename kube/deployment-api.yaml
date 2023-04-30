@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${APPLICATION}-${GLOBAL_VERSION}
+  namespace: ${SQUAD}-${ENV}
+  labels:
+    app: ${APPLICATION}
+    version: ${GLOBAL_VERSION}
+spec:
+  selector:
+    matchLabels:
+      app: ${APPLICATION}
+      version: ${GLOBAL_VERSION}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: ${APPLICATION}
+        version: ${GLOBAL_VERSION}
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: node_group
+                operator: In
+                values:
+                - "management-private"
+            weight: 100
+      containers:
+        - name: ${APPLICATION}
+          image: $CI_REGISTRY/$CI_PROJECT_PATH/$APPLICATION:$CI_COMMIT_TAG
+          imagePullPolicy: Always
+          env:
+            - name: ENV
+              value: ${ENV}
+            - name: APP_INGRESS_URL
+              value: https://${APPLICATION}-${ENV}.${HOST}
+          ports:
+            - containerPort: ${APPLICATION_PORT}
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: ${APPLICATION_PORT}
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 1
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources: 
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+            requests:
+              cpu: 300m
+              memory: 256Mi
+          volumeMounts:
+            - name: ${APPLICATION}-configmap
+              mountPath: "/api/config/config.json"
+              subPath: config.json
+              readOnly: true
+            - name: ${APPLICATION}-secret
+              mountPath: "/api/config/secret.json"
+              subPath: secret.json
+              readOnly: true
+      imagePullSecrets:
+      - name: gitlab-images
+      serviceAccount: ${APPLICATION}
+      volumes:
+      - name: ${APPLICATION}-configmap
+        configMap:
+          name: ${APPLICATION}-${ENV}-configmap
+      - name: ${APPLICATION}-secret
+        secret:
+          secretName: ${APPLICATION}-${ENV}-secret
+          optional: false

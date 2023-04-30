@@ -1,0 +1,58 @@
+variables:
+    SQUAD: "jonathanschmitt"
+    APPLICATION: "api"
+    APPLICATION_PORT: 8080
+    GLOBAL_VERSION: "dev"
+    HOST: jonathanschmitt.com.br
+
+stages:
+  - build-dev
+  - deploy-dev
+
+build-dev:
+  stage: build-dev
+  image: golang:1.18.7-alpine3.16
+  only:
+    - /^dev$/
+  services:
+    - name: docker:18.09.9-dind
+      alias: docker
+  cache:
+    key: $APPLICATION-$CI_COMMIT_BRANCH.zip
+    paths:
+      - $CI_PROJECT_DIR/.go/
+  before_script:
+    - mkdir -p $CI_PROJECT_DIR/.go
+  script:
+    - apk update && apk add docker-cli
+    - GOCACHE=$CI_PROJECT_DIR/.go/ CGO_ENABLED=0 GOOS=linux go build -o api ./cmd/main.go
+    
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build --tag $CI_REGISTRY/$CI_PROJECT_PATH/$APPLICATION:dev .
+    - docker push $CI_REGISTRY/$CI_PROJECT_PATH/$APPLICATION:dev
+
+deploy-api-dev:
+  image: atlassian/pipelines-kubectl:1.22.3
+  stage: deploy-dev
+  only:
+    - /^dev$/
+  variables:
+    ENV: "dev"
+  script:
+    - apk add --no-cache gettext aws-cli
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID_DEV
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY_DEV
+    - aws configure set aws_default_region us-east-1
+    - aws eks --region us-east-1 update-kubeconfig --name eks-development
+
+    - envsubst < kube/deploy-api.yaml > deploy-api.yaml
+    - envsubst < kube/service-api.yaml > service-api.yaml
+    - envsubst < kube/ingress-api.yaml > ingress-api.yaml
+    - envsubst < kube/configmap-api.yaml > configmap-api.yaml
+    - envsubst < kube/secret-api.yaml > secret-api.yaml
+
+    - kubectl apply -f deploy-api.yaml
+    - kubectl apply -f service-api.yaml
+    - kubectl apply -f ingress-api.yaml
+    - kubectl apply -f configmap-api.yaml
+    - kubectl apply -f secret-api.yaml
