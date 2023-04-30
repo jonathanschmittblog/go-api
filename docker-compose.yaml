@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - ./database/postgres-init-user-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
+      - ./database/init-db.sh:/docker-entrypoint-initdb.d/init-user-db.sh
       - ./database:/database
     command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all -c max_connections=200
 
